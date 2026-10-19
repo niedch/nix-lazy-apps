@@ -1,0 +1,11 @@
+[tasks.build]
+description = "Build nix project"
+run = "nix build ."
+
+[tasks.diff]
+description = "Build a host config and show package changes vs. the previous generation (e.g. laptop, desktop)"
+usage = '''arg "<host>" help="Host configuration name"'''
+run = '''
+prev=$(ls -dv /nix/var/nix/profiles/system-*-link | tail -n2 | head -n1)
+nix run nixpkgs#nvd -- diff "$prev" result
+'''
