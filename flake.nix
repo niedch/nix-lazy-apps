@@ -45,7 +45,7 @@
           src = ./.;
 
           # Nix needs a hash of your Cargo.lock dependencies for reproducibility.
-          cargoHash = "sha256-IZI3TFqRePfJ2kE//vBXty1KMqqA5unKPBhNxcD//m0=";
+          cargoHash = "sha256-koH4YcY/tKffDrXeHCBH2gFk1dfupOt9c/tN5OxWQX4=";
 
           nativeBuildInputs = [ pkgs.makeWrapper ];
 

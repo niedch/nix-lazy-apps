@@ -2,6 +2,7 @@ use cli::{Cli, CliParser, Commands};
 
 mod cli;
 mod gui;
+mod nix;
 
 #[tokio::main]
 async fn main() {
@@ -14,7 +15,7 @@ async fn main() {
                 gui_args.name, gui_args.flake_output
             );
 
-            gui::app::gui(gui_args.name).expect("Test")
+            gui::app::gui(gui_args.name).expect("Do not fail")
         }
     }
 }
