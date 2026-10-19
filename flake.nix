@@ -19,6 +19,22 @@
 
         # Read the Cargo.toml to get the package name
         cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+
+        runtimeLibs = with pkgs; [
+          # Wayland
+          wayland
+          libxkbcommon
+
+          # Graphics / Vulkan / OpenGL
+          libGL
+          vulkan-loader
+
+          # X11 fallback
+          libx11
+          libxcursor
+          libxi
+          libxrandr
+        ];
       in
       {
         packages.default = pkgs.rustPlatform.buildRustPackage {
@@ -29,21 +45,38 @@
           src = ./.;
 
           # Nix needs a hash of your Cargo.lock dependencies for reproducibility.
-          cargoHash = "sha256-nPLfGpAaCCG/q1+LhZ/EBKT3QnA18ZFHjiu1pFvIb04=";
+          cargoHash = "sha256-IZI3TFqRePfJ2kE//vBXty1KMqqA5unKPBhNxcD//m0=";
+
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+
+          postFixup = ''
+            wrapProgram $out/bin/${cargoToml.package.name} \
+              --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibs}
+          '';
         };
 
+
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            cargo
-            rustc
-            rustfmt
-            clippy
-            rust-analyzer
-            mise
+          nativeBuildInputs = with pkgs; [
+            pkg-config
           ];
+
+          buildInputs =
+            (with pkgs; [
+              cargo
+              rustc
+              rustfmt
+              clippy
+              rust-analyzer
+              mise
+            ])
+            ++ runtimeLibs;
+
+          LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath runtimeLibs;
 
           # Optional: sets up environment variables like RUST_SRC_PATH
           shellHook = ''
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath runtimeLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             mise tasks ls
           '';
         };
