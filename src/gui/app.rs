@@ -1,7 +1,15 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+use std::sync::mpsc::Receiver;
+
+// hide console window on Windows in release
 use eframe::egui::{self, Color32, CornerRadius, RichText, Stroke, StrokeKind, Visuals};
 
-pub fn gui(name: String) -> Result<(), eframe::Error> {
+use crate::nix::tracker::NixProgressSnapshot;
+
+pub fn gui(
+    name: String,
+    rx: std::sync::mpsc::Receiver<NixProgressSnapshot>,
+) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title(name.as_str())
@@ -19,7 +27,14 @@ pub fn gui(name: String) -> Result<(), eframe::Error> {
             let visuals = SteamDialogApp::setup_theme();
             cc.egui_ctx.set_visuals(visuals);
 
-            let mut dialog_state = Box::<SteamDialogApp>::default();
+            let mut dialog_state = Box::new(SteamDialogApp {
+                header: "Installing ...".to_owned(),
+                detail: "Checking for available updates...".to_owned(),
+                rx: rx,
+                progress: 0.0,
+                speed: 0.1,
+            });
+
             dialog_state.header = format!("Installing {name}...");
             Ok(dialog_state)
         }),
@@ -31,17 +46,7 @@ struct SteamDialogApp {
     detail: String,
     progress: f32,
     speed: f32,
-}
-
-impl Default for SteamDialogApp {
-    fn default() -> Self {
-        Self {
-            header: "Installing ...".to_owned(),
-            detail: "Checking for available updates...".to_owned(),
-            progress: 0.0,
-            speed: 0.1,
-        }
-    }
+    rx: Receiver<NixProgressSnapshot>,
 }
 
 impl SteamDialogApp {
@@ -83,10 +88,19 @@ impl eframe::App for SteamDialogApp {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        if self.speed > 0.0 && self.progress < 1.0 {
-            let dt = ui.input(|i| i.stable_dt);
-            self.progress = (self.progress + self.speed * dt).min(1.0);
-            ui.ctx().request_repaint();
+        while let Ok(snapshot) = self.rx.try_recv() {
+            self.header = snapshot.header;
+            self.detail = snapshot.detail;
+
+            if let Some(fraction) = snapshot.global.fraction {
+                self.progress = fraction
+            }
+
+            if snapshot.is_finished {
+                ui.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+
+            ui.request_repaint();
         }
 
         egui::CentralPanel::default()
