@@ -27,16 +27,12 @@ pub fn gui(
             let visuals = SteamDialogApp::setup_theme();
             cc.egui_ctx.set_visuals(visuals);
 
-            let mut dialog_state = Box::new(SteamDialogApp {
-                header: "Installing ...".to_owned(),
+            Ok(Box::new(SteamDialogApp {
+                header: format!("Installing {name}..."),
                 detail: "Checking for available updates...".to_owned(),
-                rx: rx,
                 progress: 0.0,
-                speed: 0.1,
-            });
-
-            dialog_state.header = format!("Installing {name}...");
-            Ok(dialog_state)
+                rx: rx,
+            }))
         }),
     )
 }
@@ -45,7 +41,6 @@ struct SteamDialogApp {
     header: String,
     detail: String,
     progress: f32,
-    speed: f32,
     rx: Receiver<NixProgressSnapshot>,
 }
 
@@ -142,10 +137,13 @@ impl eframe::App for SteamDialogApp {
                     );
                 }
 
-                ui.label(
-                    RichText::new(&self.detail)
-                        .size(11.0)
-                        .color(Color32::from_rgb(150, 150, 150)),
+                ui.add(
+                    egui::Label::new(
+                        RichText::new(&self.detail)
+                            .size(11.0)
+                            .color(Color32::from_rgb(150, 150, 150)),
+                    )
+                    .truncate(),
                 );
 
                 ui.add_space(8.0);
