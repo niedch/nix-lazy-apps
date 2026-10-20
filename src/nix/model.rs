@@ -71,7 +71,7 @@ impl LogField {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[repr(u32)]
-pub enum ActionType {
+pub enum ActivityType {
     Unknown = 0,
     CopyPath = 100,
     FileTransfer = 101,
@@ -85,7 +85,7 @@ pub enum ActionType {
     Other(u32),
 }
 
-impl From<u32> for ActionType {
+impl From<u32> for ActivityType {
     fn from(value: u32) -> Self {
         match value {
             0 => Self::Unknown,
