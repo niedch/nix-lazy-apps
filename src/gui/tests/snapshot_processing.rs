@@ -9,7 +9,7 @@ fn test_process_snapshot_normal_progress() {
         progress: 0.0,
         rx,
         error: None,
-        error_sink: std::sync::Arc::new(std::sync::Mutex::new(None)),
+        error_tx: std::sync::mpsc::channel().0,
     };
 
     let snapshot = NixProgressSnapshot {
@@ -44,7 +44,7 @@ fn test_process_snapshot_normal_finished() {
         progress: 0.0,
         rx,
         error: None,
-        error_sink: std::sync::Arc::new(std::sync::Mutex::new(None)),
+        error_tx: std::sync::mpsc::channel().0,
     };
 
     let snapshot = NixProgressSnapshot {
@@ -76,7 +76,7 @@ fn test_process_snapshot_error_mode() {
         progress: 0.2,
         rx,
         error: None,
-        error_sink: std::sync::Arc::new(std::sync::Mutex::new(None)),
+        error_tx: std::sync::mpsc::channel().0,
     };
 
     let snapshot = NixProgressSnapshot {
@@ -110,7 +110,7 @@ fn test_process_snapshot_error_finished_closes() {
         progress: 0.0,
         rx,
         error: Some("error: already errored".to_string()),
-        error_sink: std::sync::Arc::new(std::sync::Mutex::new(None)),
+        error_tx: std::sync::mpsc::channel().0,
     };
 
     let snapshot = NixProgressSnapshot {
