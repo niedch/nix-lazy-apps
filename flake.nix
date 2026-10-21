@@ -12,6 +12,39 @@
       nixpkgs,
       flake-utils,
     }:
+    let
+      topLevelOutputs = {
+        nixosModules = rec {
+          nix-lazy-apps = import ./nix/nixos-module.nix self;
+          default = nix-lazy-apps;
+        };
+
+        homeManagerModules = rec {
+          nix-lazy-apps = import ./nix/home-manager-module.nix self;
+          default = nix-lazy-apps;
+        };
+
+        overlays = rec {
+          nix-lazy-apps = final: prev: {
+            nix-lazy-apps = self.packages.${final.stdenv.hostPlatform.system or final.system}.default;
+          };
+          default = nix-lazy-apps;
+        };
+
+        lib = {
+          mkLazyApp =
+            args:
+            let
+              isPkgs = args ? stdenv && args ? lib;
+              effectiveArgs = if isPkgs then { pkgs = args; } else args;
+              pkgs = effectiveArgs.pkgs or (throw "lib.mkLazyApp: 'pkgs' argument is required");
+              lazyAppsPkg =
+                effectiveArgs.lazyAppsPkg or self.packages.${pkgs.stdenv.hostPlatform.system or pkgs.system}.default;
+            in
+            import ./nix/mk-lazy-app.nix ({ inherit lazyAppsPkg; } // effectiveArgs);
+        };
+      };
+    in
     flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -36,25 +69,34 @@
           libxrandr
         ];
       in
-      {
-        packages.default = pkgs.rustPlatform.buildRustPackage {
-          pname = cargoToml.package.name;
-          version = cargoToml.package.version;
+      rec {
+        packages = rec {
+          nix-lazy-apps = pkgs.rustPlatform.buildRustPackage {
+            pname = cargoToml.package.name;
+            version = cargoToml.package.version;
 
-          # Tells Nix to use the local directory as the source code
-          src = ./.;
+            # Tells Nix to use the local directory as the source code
+            src = ./.;
 
-          # Nix needs a hash of your Cargo.lock dependencies for reproducibility.
-          cargoHash = "sha256-koH4YcY/tKffDrXeHCBH2gFk1dfupOt9c/tN5OxWQX4=";
+            # Nix needs a hash of your Cargo.lock dependencies for reproducibility.
+            cargoHash = "sha256-nDPTbp5eTKbRorIj5sJn4P8SWLQl5Hj9qNRZop/6okM=";
 
-          nativeBuildInputs = [ pkgs.makeWrapper ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
 
-          postFixup = ''
-            wrapProgram $out/bin/${cargoToml.package.name} \
-              --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibs}
-          '';
+            postFixup = ''
+              wrapProgram $out/bin/${cargoToml.package.name} \
+                --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath runtimeLibs}
+            '';
+          };
+          default = nix-lazy-apps;
         };
 
+        legacyPackages = {
+          mkLazyApp = import ./nix/mk-lazy-app.nix {
+            inherit pkgs;
+            lazyAppsPkg = packages.default;
+          };
+        };
 
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
@@ -81,5 +123,6 @@
           '';
         };
       }
-    );
+    )
+    // topLevelOutputs;
 }
