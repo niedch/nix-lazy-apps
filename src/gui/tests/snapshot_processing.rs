@@ -1,15 +1,15 @@
-use crate::{gui::app::SteamDialogApp, nix::tracker::{GlobalProgress, NixProgressSnapshot}};
+use crate::{gui::loading_view::LoadingDialogApp, nix::tracker::{GlobalProgress, NixProgressSnapshot}};
 
 #[test]
 fn test_process_snapshot_normal_progress() {
     let (_tx, rx) = std::sync::mpsc::channel();
-    let mut app = SteamDialogApp {
+    let mut app = LoadingDialogApp {
         header: "Installing...".to_string(),
         detail: "Starting...".to_string(),
         progress: 0.0,
         rx,
         error: None,
-        error_expanded: false,
+        error_sink: std::sync::Arc::new(std::sync::Mutex::new(None)),
     };
 
     let snapshot = NixProgressSnapshot {
@@ -38,13 +38,13 @@ fn test_process_snapshot_normal_progress() {
 #[test]
 fn test_process_snapshot_normal_finished() {
     let (_tx, rx) = std::sync::mpsc::channel();
-    let mut app = SteamDialogApp {
+    let mut app = LoadingDialogApp {
         header: "Installing...".to_string(),
         detail: "Starting...".to_string(),
         progress: 0.0,
         rx,
         error: None,
-        error_expanded: false,
+        error_sink: std::sync::Arc::new(std::sync::Mutex::new(None)),
     };
 
     let snapshot = NixProgressSnapshot {
@@ -70,13 +70,13 @@ fn test_process_snapshot_normal_finished() {
 #[test]
 fn test_process_snapshot_error_mode() {
     let (_tx, rx) = std::sync::mpsc::channel();
-    let mut app = SteamDialogApp {
+    let mut app = LoadingDialogApp {
         header: "Installing...".to_string(),
         detail: "Starting...".to_string(),
         progress: 0.2,
         rx,
         error: None,
-        error_expanded: false,
+        error_sink: std::sync::Arc::new(std::sync::Mutex::new(None)),
     };
 
     let snapshot = NixProgressSnapshot {
@@ -95,22 +95,22 @@ fn test_process_snapshot_error_mode() {
     };
 
     let should_close = app.process_snapshot(snapshot);
-    assert!(!should_close);
+    assert!(should_close);
     assert_eq!(app.header, "Installation failed");
     assert_eq!(app.error, Some("error: build failed".to_string()));
     assert_eq!(app.progress, 0.2);
 }
 
 #[test]
-fn test_process_snapshot_error_finished_does_not_close() {
+fn test_process_snapshot_error_finished_closes() {
     let (_tx, rx) = std::sync::mpsc::channel();
-    let mut app = SteamDialogApp {
+    let mut app = LoadingDialogApp {
         header: "Installing...".to_string(),
         detail: "Starting...".to_string(),
         progress: 0.0,
         rx,
         error: Some("error: already errored".to_string()),
-        error_expanded: false,
+        error_sink: std::sync::Arc::new(std::sync::Mutex::new(None)),
     };
 
     let snapshot = NixProgressSnapshot {
@@ -129,7 +129,7 @@ fn test_process_snapshot_error_finished_does_not_close() {
     };
 
     let should_close = app.process_snapshot(snapshot);
-    assert!(!should_close);
+    assert!(should_close);
     assert_eq!(app.error, Some("error: already errored".to_string()));
     assert_eq!(app.progress, 0.0);
 }

@@ -15,7 +15,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 gui_args.name, gui_args.flake_output
             );
 
-            gui::app::gui(gui_args)?;
+            if let Some(err) = gui::loading_view::gui(gui_args.clone())? {
+                gui::error_view::gui(&gui_args, &err)?;
+            }
             Ok(())
         }
     }
