@@ -23,6 +23,7 @@ let
         inherit lib pkgs;
         lazyAppsPkg = cfg.package;
         defaultFlake = cfg.defaultFlake;
+        defaultAllowUnfree = cfg.allowUnfree;
       };
 
       lazyAppPackages = map mkLazyApp cfg.lazyPkgs;
@@ -46,6 +47,13 @@ let
           type = lib.types.str;
           default = "nixpkgs";
           description = "Default flake URI used when resolving lazy packages specified by name.";
+        };
+
+        allowUnfree = lib.mkOption {
+          type = lib.types.bool;
+          default = config.nixpkgs.config.allowUnfree or false;
+          defaultText = lib.literalExpression "config.nixpkgs.config.allowUnfree or false";
+          description = "Whether to allow unfree packages in lazy wrappers by default.";
         };
 
         package = lib.mkOption {

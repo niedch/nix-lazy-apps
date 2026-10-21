@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use crate::nix::tracker::NixStateTracker;
+use crate::nix::tracker::{strip_ansi_escapes, NixStateTracker};
 
 fn assert_success_parsing<P: AsRef<Path>>(filepath: P) -> std::io::Result<()> {
     let file = File::open(filepath).expect("File need to exisit");
@@ -190,4 +190,57 @@ fn test_determine_individual_progress() {
     tracker.process_line(r#"@nix {"action":"stop","id":201}"#);
     tracker.process_line(r#"@nix {"action":"result","id":200,"type":105,"fields":[1,1,0,0]}"#);
     assert_eq!(tracker.snapshot().individual, None);
+}
+
+#[test]
+fn test_strip_ansi_escapes() {
+    assert_eq!(
+        strip_ansi_escapes("\x1b[31;1merror:\x1b[0m package not found"),
+        "error: package not found"
+    );
+    assert_eq!(strip_ansi_escapes("plain text"), "plain text");
+    assert_eq!(strip_ansi_escapes("\x1b[2J\x1b[H"), "");
+}
+
+#[test]
+fn test_error_capturing_msg() {
+    let mut tracker = NixStateTracker::new();
+    let snap = tracker.process_line(
+        r#"@nix {"action":"msg","level":0,"msg":"\u001b[31;1merror:\u001b[0m evaluation aborted"}"#,
+    );
+
+    assert_eq!(snap.error, Some("error: evaluation aborted".to_string()));
+    assert_eq!(snap.header, "Installation failed");
+    assert_eq!(snap.detail, "error: evaluation aborted");
+}
+
+#[test]
+fn test_error_capturing_raw() {
+    let mut tracker = NixStateTracker::new();
+    let snap = tracker.process_line("\x1b[31;1merror:\x1b[0m builder failed with exit code 1");
+
+    assert_eq!(
+        snap.error,
+        Some("error: builder failed with exit code 1".to_string())
+    );
+    assert_eq!(snap.header, "Installation failed");
+    assert_eq!(snap.detail, "error: builder failed with exit code 1");
+}
+
+#[test]
+fn test_error_capturing_fixture() -> std::io::Result<()> {
+    let file = File::open("./src/nix/tests/failiure_error_message.log")?;
+    let reader = BufReader::new(file);
+
+    let mut tracker = NixStateTracker::new();
+    let mut snapshot = tracker.snapshot();
+
+    for line in reader.lines() {
+        snapshot = tracker.process_line(line?.as_str());
+    }
+
+    assert!(snapshot.error.as_deref().unwrap_or("").starts_with("error:"));
+    assert_eq!(snapshot.header, "Installation failed");
+
+    Ok(())
 }

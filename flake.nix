@@ -98,6 +98,86 @@
           };
         };
 
+        checks = {
+          test-lazy-app-eval =
+            let
+              mkLazyApp = legacyPackages.mkLazyApp;
+              mkLazyAppUnfreeDefault = import ./nix/mk-lazy-app.nix {
+                inherit pkgs;
+                lazyAppsPkg = packages.default;
+                defaultAllowUnfree = true;
+              };
+
+              # Test cases
+              # 1. pkgs.hello (free -> false)
+              appHello = mkLazyApp pkgs.hello;
+
+              # 2. pkgs.intellij-idea (unfree -> true)
+              appIntellij = mkLazyApp pkgs.intellij-idea;
+
+              # 3. Explicit unfree / impure attrsets
+              appExplicitUnfree = mkLazyApp {
+                package = pkgs.hello;
+                unfree = true;
+              };
+              appExplicitFlakeUnfree = mkLazyApp {
+                flakeOutput = "nixpkgs#hello";
+                unfree = true;
+              };
+              appExplicitImpure = mkLazyApp {
+                flakeOutput = "nixpkgs#hello";
+                impure = true;
+              };
+
+              # 4. String default unfree
+              appStringDefault = mkLazyApp "hello";
+              appStringDefaultUnfree = mkLazyAppUnfreeDefault "hello";
+
+              # Evaluation assertions
+              asserts = [
+                (!appHello.passthru.spec.unfree)
+                (!appHello.passthru.spec.impure)
+                (!(pkgs.lib.hasInfix "--unfree" appHello.passthru.spec.exec))
+                (!(pkgs.lib.hasInfix "--impure" appHello.passthru.spec.exec))
+
+                appIntellij.passthru.spec.unfree
+                (pkgs.lib.hasInfix "--unfree" appIntellij.passthru.spec.exec)
+
+                appExplicitUnfree.passthru.spec.unfree
+                (pkgs.lib.hasInfix "--unfree" appExplicitUnfree.passthru.spec.exec)
+
+                appExplicitFlakeUnfree.passthru.spec.unfree
+                (pkgs.lib.hasInfix "--unfree" appExplicitFlakeUnfree.passthru.spec.exec)
+
+                appExplicitImpure.passthru.spec.impure
+                (pkgs.lib.hasInfix "--impure" appExplicitImpure.passthru.spec.exec)
+
+                (!appStringDefault.passthru.spec.unfree)
+                (!(pkgs.lib.hasInfix "--unfree" appStringDefault.passthru.spec.exec))
+
+                appStringDefaultUnfree.passthru.spec.unfree
+                (pkgs.lib.hasInfix "--unfree" appStringDefaultUnfree.passthru.spec.exec)
+              ];
+
+              evalSuccess = pkgs.lib.all (x: x) asserts;
+            in
+            if !evalSuccess then
+              throw "test-lazy-app-eval assertions failed"
+            else
+              pkgs.runCommand "test-lazy-app-eval" { } ''
+                # Verify generated wrapper scripts
+                grep -F 'gui --flake-output' ${appHello}/bin/hello
+                grep -F 'gui --unfree --flake-output' ${appIntellij}/bin/intellij-idea
+                grep -F 'gui --unfree --flake-output' ${appExplicitUnfree}/bin/hello
+                grep -F 'gui --unfree --flake-output' ${appExplicitFlakeUnfree}/bin/hello
+                grep -F 'gui --impure --flake-output' ${appExplicitImpure}/bin/hello
+                grep -F 'gui --flake-output' ${appStringDefault}/bin/hello
+                grep -F 'gui --unfree --flake-output' ${appStringDefaultUnfree}/bin/hello
+
+                touch $out
+              '';
+        };
+
         devShells.default = pkgs.mkShell {
           nativeBuildInputs = with pkgs; [
             pkg-config

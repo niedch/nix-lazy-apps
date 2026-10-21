@@ -3,6 +3,7 @@
   pkgs,
   lazyAppsPkg,
   defaultFlake ? "nixpkgs",
+  defaultAllowUnfree ? false,
   ...
 }@args:
 
@@ -49,6 +50,27 @@ let
         flakeOutput = "${defaultFlake}#${cleanStr}";
       };
 
+  # Check if a license indicates an unfree license
+  isUnfreeLicense =
+    lic:
+    if builtins.isList lic then
+      lib.any isUnfreeLicense lic
+    else if builtins.isAttrs lic then
+      !(lic.free or true)
+    else if builtins.isString lic then
+      lic == "unfree"
+    else
+      false;
+
+  # Check if a derivation has an unfree license or meta.unfree set
+  isDerivationUnfree =
+    drv:
+    if !builtins.isAttrs drv then
+      false
+    else
+      (drv.meta.unfree or false) == true
+      || (drv ? meta && drv.meta ? license && isUnfreeLicense drv.meta.license);
+
   # Parse derivation attributes safely without realizing the derivation
   parseDerivation =
     drv:
@@ -68,6 +90,7 @@ let
       inherit name desktopName comment;
       flakeOutput = "${defaultFlake}#${name}";
       icon = name;
+      unfree = isDerivationUnfree drv;
     };
 
   # Main builder implementation
@@ -102,8 +125,11 @@ let
       comment = sanitizeComment (rawSpec.comment or null);
       categories = rawSpec.categories or [ ];
       terminal = rawSpec.terminal or false;
+      unfree = rawSpec.unfree or defaultAllowUnfree;
+      impure = rawSpec.impure or false;
+      flags = (lib.optionalString unfree " --unfree") + (lib.optionalString impure " --impure");
       exec =
-        rawSpec.exec or "${lazyAppsPkg}/bin/nix-lazy-apps gui --flake-output \"${flakeOutput}\" --name \"${name}\"";
+        rawSpec.exec or "${lazyAppsPkg}/bin/nix-lazy-apps gui${flags} --flake-output \"${flakeOutput}\" --name \"${name}\"";
 
       spec = {
         inherit
@@ -115,6 +141,8 @@ let
           categories
           terminal
           exec
+          unfree
+          impure
           ;
       };
 
@@ -134,7 +162,7 @@ let
       );
 
       wrapperScript = pkgs.writeShellScriptBin spec.name ''
-        exec ${lazyAppsPkg}/bin/nix-lazy-apps gui --flake-output ${lib.escapeShellArg spec.flakeOutput} --name ${lib.escapeShellArg spec.name} "$@"
+        exec ${lazyAppsPkg}/bin/nix-lazy-apps gui${flags} --flake-output ${lib.escapeShellArg spec.flakeOutput} --name ${lib.escapeShellArg spec.name} "$@"
       '';
     in
     pkgs.symlinkJoin {

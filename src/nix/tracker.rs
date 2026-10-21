@@ -120,6 +120,15 @@ pub static URL_RE: LazyLock<Regex> = LazyLock::new(|| {
         .expect("valid regex for URL_RE")
 });
 
+#[allow(clippy::expect_used)]
+pub static ANSI_ESCAPE_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").expect("valid regex for ANSI_ESCAPE_RE")
+});
+
+pub fn strip_ansi_escapes(s: &str) -> String {
+    ANSI_ESCAPE_RE.replace_all(s, "").into_owned()
+}
+
 /// Extracts a clean package or resource name from a Nix store path or URL.
 ///
 /// Strips `/nix/store/<hash>-` prefixes (and optional `.drv` suffixes),
@@ -148,6 +157,8 @@ pub struct NixProgressSnapshot {
     pub header: String,
     /// Detailed status for UI subtext.
     pub detail: String,
+    /// Error message captured from failed actions.
+    pub error: Option<String>,
     /// True when the root task finishes.
     pub is_finished: bool,
 
@@ -187,6 +198,7 @@ pub struct NixStateTracker {
     root_activity_id: Option<u64>,
     is_finished: bool,
     last_detail: String,
+    error_message: Option<String>,
 }
 
 impl NixStateTracker {
@@ -237,13 +249,21 @@ impl NixStateTracker {
                 NixLogAction::SetPhase { phase } => {
                     self.active_build_phase = Some(phase);
                 }
-                NixLogAction::Msg { msg, .. } => {
-                    self.last_detail = msg;
+                NixLogAction::Msg { level, msg } => {
+                    let clean = strip_ansi_escapes(&msg);
+                    if level == 0 {
+                        self.error_message = Some(clean.clone());
+                    }
+                    self.last_detail = clean;
                 }
             },
             NixLogMessage::Raw(raw_line) => {
-                if !raw_line.is_empty() {
-                    self.last_detail = raw_line;
+                let clean = strip_ansi_escapes(&raw_line);
+                if clean.starts_with("error:") {
+                    self.error_message = Some(clean.clone());
+                }
+                if !clean.is_empty() {
+                    self.last_detail = clean;
                 }
             }
         }
@@ -432,6 +452,7 @@ impl NixStateTracker {
             individual,
             header,
             detail: self.last_detail.clone(),
+            error: self.error_message.clone(),
             is_finished: self.is_finished,
             fraction: global.fraction,
             builds: global.builds,
@@ -522,6 +543,10 @@ impl NixStateTracker {
     }
 
     fn determine_header(&self) -> String {
+        if self.error_message.is_some() {
+            return "Installation failed".to_string();
+        }
+
         if self.is_finished {
             return "Complete".to_string();
         }
