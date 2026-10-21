@@ -4,15 +4,12 @@ use std::sync::mpsc::Receiver;
 // hide console window on Windows in release
 use eframe::egui::{self, Color32, CornerRadius, RichText, Stroke, StrokeKind, Visuals};
 
-use crate::nix::tracker::NixProgressSnapshot;
+use crate::{cli::GuiArgs, gui::nixrunner, nix::tracker::NixProgressSnapshot};
 
-pub fn gui(
-    name: String,
-    rx: std::sync::mpsc::Receiver<NixProgressSnapshot>,
-) -> Result<(), eframe::Error> {
+pub fn gui(gui_args: GuiArgs) -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title(name.as_str())
+            .with_title(gui_args.name.as_str())
             .with_inner_size([380.0, 120.0])
             .with_min_inner_size([380.0, 120.0])
             .with_max_inner_size([380.0, 120.0])
@@ -20,18 +17,23 @@ pub fn gui(
             .with_maximize_button(false),
         ..Default::default()
     };
+
+    let name = gui_args.name.clone();
+
     eframe::run_native(
-        name.as_str(),
+        &name,
         options,
         Box::new(|cc| {
             let visuals = SteamDialogApp::setup_theme();
+            let reciever = nixrunner::nix_runner(gui_args, cc.egui_ctx.clone());
+
             cc.egui_ctx.set_visuals(visuals);
 
             Ok(Box::new(SteamDialogApp {
-                header: format!("Installing {name}..."),
+                header: format!("Installing {}...", name),
                 detail: "Checking for available updates...".to_owned(),
                 progress: 0.0,
-                rx: rx,
+                rx: reciever,
             }))
         }),
     )

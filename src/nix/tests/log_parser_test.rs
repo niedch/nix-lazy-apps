@@ -38,6 +38,7 @@ fn test_successful_parsing() {
         "./src/nix/tests/success_pull_firefox.log",
         "./src/nix/tests/success_cache_foot.log",
         "./src/nix/tests/success_pull_r2modman.log",
+        "./src/nix/tests/success_pull_brave.log",
     ] {
         assert_success_parsing(path).expect("Success");
     }
