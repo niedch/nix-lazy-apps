@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+#[allow(clippy::expect_used)]
 pub static ANSI_ESCAPE_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").expect("valid regex for ANSI_ESCAPE_RE")
 });

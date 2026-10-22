@@ -1,6 +1,8 @@
 use tokio::process::Command;
 
-use crate::{cli::GuiArgs, gui::nixrunner::create_nix_command};
+use crate::{
+    cli::GuiArgs, gui::nix_command::nixrunner::create_nix_command,
+};
 
 fn get_command_args(cmd: &Command) -> Vec<String> {
     cmd.as_std()
@@ -27,6 +29,7 @@ fn test_create_nix_command_default() {
     };
 
     let cmd = create_nix_command(&gui_args);
+    assert_eq!(cmd.as_std().get_program(), "nix");
     let args = get_command_args(&cmd);
     assert_eq!(
         args,

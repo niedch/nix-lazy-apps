@@ -5,9 +5,7 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use eframe::egui::{self, Color32, CornerRadius, RichText, Stroke, StrokeKind};
 
 use crate::{
-    cli::GuiArgs,
-    gui::{nixrunner, theme::setup_theme},
-    nix::tracker::NixProgressSnapshot,
+    cli::GuiArgs, gui::{nix_command::nixrunner, theme::setup_theme}, nix::tracker::NixProgressSnapshot,
 };
 
 pub fn gui(gui_args: GuiArgs) -> Result<Option<String>, eframe::Error> {
@@ -104,7 +102,6 @@ impl LoadingDialogApp {
 
         if let Some(snapshot) = latest_snapshot {
             if !self.process_snapshot(snapshot) {
-                println!("Showing progress {}", self.progress);
                 ui.request_repaint();
                 return;
             }
