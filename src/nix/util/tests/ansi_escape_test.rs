@@ -1,4 +1,4 @@
-use crate::nix::ansi_escape::strip_ansi_escapes;
+use crate::nix::util::ansi_escape::strip_ansi_escapes;
 
 #[test]
 fn test_strip_ansi_escapes() {

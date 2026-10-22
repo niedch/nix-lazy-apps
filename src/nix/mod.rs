@@ -1,6 +1,6 @@
 pub mod model; 
 pub mod tracker; 
-mod ansi_escape;
+mod util;
 
 #[cfg(test)]
 mod tests;

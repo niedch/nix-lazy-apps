@@ -1,4 +1,4 @@
-use crate::nix::tracker::extract_package_name;
+use crate::nix::util::package_name::extract_package_name;
 
 #[test]
 fn test_extract_package_name() {
