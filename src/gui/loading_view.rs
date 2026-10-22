@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 
 // hide console window on Windows in release
 use eframe::egui::{self, Color32, CornerRadius, RichText, Stroke, StrokeKind};
@@ -79,8 +79,32 @@ impl LoadingDialogApp {
     }
 
     fn receive_snapshot(&mut self, ui: &mut egui::Ui) {
-        while let Ok(snapshot) = self.rx.try_recv() {
+        let mut latest_snapshot: Option<NixProgressSnapshot> = None;
+
+        loop {
+            match self.rx.try_recv() {
+                Ok(snapshot) => {
+                    let is_finished = snapshot.is_finished || snapshot.error.is_some();
+                    latest_snapshot = Some(snapshot);
+                    if is_finished {
+                        break;
+                    }
+                }
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    // Background worker finished and closed the channel
+                    if latest_snapshot.is_none() {
+                        ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+                        return;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if let Some(snapshot) = latest_snapshot {
             if !self.process_snapshot(snapshot) {
+                println!("Showing progress {}", self.progress);
                 ui.request_repaint();
                 return;
             }
@@ -88,6 +112,7 @@ impl LoadingDialogApp {
             if let Some(err) = &self.error {
                 let _ = self.error_tx.send(err.clone());
             }
+
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
         }
     }
