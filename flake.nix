@@ -79,7 +79,7 @@
             src = ./.;
 
             # Nix needs a hash of your Cargo.lock dependencies for reproducibility.
-            cargoHash = "sha256-nDPTbp5eTKbRorIj5sJn4P8SWLQl5Hj9qNRZop/6okM=";
+            cargoHash = "sha256-XR2zYsJhb7N2eR7zY3o0sHfaDr4njROHpOrKddnuMzU=";
 
             nativeBuildInputs = [ pkgs.makeWrapper ];
 
@@ -196,9 +196,7 @@
 
           LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath runtimeLibs;
 
-          # Optional: sets up environment variables like RUST_SRC_PATH
           shellHook = ''
-            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath runtimeLibs}''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             mise tasks ls
           '';
         };

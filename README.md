@@ -325,5 +325,5 @@ The NixOS and Home Manager modules provide the following options under `programs
 
 ### `programs.nix-lazy-apps.package`
 - **Type:** `package`
-- **Default:** `self.packages.${pkgs.system}.default` or `pkgs.nix-lazy-apps`
+- **Default:** `self.packages.${pkgs.stdenv.hostPlatform.system or pkgs.system}.default` or `pkgs.nix-lazy-apps`
 - **Description:** The `nix-lazy-apps` executable package used to display the progress GUI.

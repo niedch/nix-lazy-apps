@@ -7,7 +7,7 @@ use std::{
 use crate::nix::tracker::NixStateTracker;
 
 fn assert_success_parsing<P: AsRef<Path>>(filepath: P) -> std::io::Result<()> {
-    let file = File::open(filepath).expect("File need to exisit");
+    let file = File::open(filepath)?;
     let reader = BufReader::new(file);
 
     let mut tracker = NixStateTracker::new();
@@ -15,7 +15,7 @@ fn assert_success_parsing<P: AsRef<Path>>(filepath: P) -> std::io::Result<()> {
     let mut snapshot = tracker.snapshot();
 
     for line in reader.lines() {
-        snapshot = tracker.process_line(line.expect("Line should exist").as_ref());
+        snapshot = tracker.process_line(line?.as_ref());
 
         if let Some(curr) = snapshot.global.fraction {
             assert!(
@@ -33,15 +33,16 @@ fn assert_success_parsing<P: AsRef<Path>>(filepath: P) -> std::io::Result<()> {
 }
 
 #[test]
-fn test_successful_parsing() {
+fn test_successful_parsing() -> std::io::Result<()> {
     for path in [
         "./src/nix/tests/success_pull_firefox.log",
         "./src/nix/tests/success_cache_foot.log",
         "./src/nix/tests/success_pull_r2modman.log",
         "./src/nix/tests/success_pull_brave.log",
     ] {
-        assert_success_parsing(path).expect("Success");
+        assert_success_parsing(path)?;
     }
+    Ok(())
 }
 
 #[test]

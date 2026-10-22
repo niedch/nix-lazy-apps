@@ -9,11 +9,12 @@ let
     }:
     let
       cfg = config.programs.nix-lazy-apps;
+      system = pkgs.stdenv.hostPlatform.system or pkgs.system;
 
       # Resolve default package from flake or pkgs
       defaultLazyAppsPackage =
-        if self != null && self ? packages.${pkgs.system}.default then
-          self.packages.${pkgs.system}.default
+        if self != null && self ? packages.${system}.default then
+          self.packages.${system}.default
         else if pkgs ? nix-lazy-apps then
           pkgs.nix-lazy-apps
         else
@@ -59,7 +60,7 @@ let
         package = lib.mkOption {
           type = lib.types.package;
           default = defaultLazyAppsPackage;
-          defaultText = lib.literalExpression "self.packages.\${pkgs.system}.default or pkgs.nix-lazy-apps";
+          defaultText = lib.literalExpression "self.packages.\${pkgs.stdenv.hostPlatform.system or pkgs.system}.default or pkgs.nix-lazy-apps";
           description = "The nix-lazy-apps package to use.";
         };
       };
