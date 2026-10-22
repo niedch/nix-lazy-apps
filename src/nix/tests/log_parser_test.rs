@@ -4,7 +4,7 @@ use std::{
     path::Path,
 };
 
-use crate::nix::tracker::{strip_ansi_escapes, NixStateTracker};
+use crate::nix::tracker::NixStateTracker;
 
 fn assert_success_parsing<P: AsRef<Path>>(filepath: P) -> std::io::Result<()> {
     let file = File::open(filepath).expect("File need to exisit");
@@ -193,16 +193,6 @@ fn test_determine_individual_progress() {
 }
 
 #[test]
-fn test_strip_ansi_escapes() {
-    assert_eq!(
-        strip_ansi_escapes("\x1b[31;1merror:\x1b[0m package not found"),
-        "error: package not found"
-    );
-    assert_eq!(strip_ansi_escapes("plain text"), "plain text");
-    assert_eq!(strip_ansi_escapes("\x1b[2J\x1b[H"), "");
-}
-
-#[test]
 fn test_error_capturing_msg() {
     let mut tracker = NixStateTracker::new();
     let snap = tracker.process_line(
@@ -239,7 +229,13 @@ fn test_error_capturing_fixture() -> std::io::Result<()> {
         snapshot = tracker.process_line(line?.as_str());
     }
 
-    assert!(snapshot.error.as_deref().unwrap_or("").starts_with("error:"));
+    assert!(
+        snapshot
+            .error
+            .as_deref()
+            .unwrap_or("")
+            .starts_with("error:")
+    );
     assert_eq!(snapshot.header, "Installation failed");
 
     Ok(())

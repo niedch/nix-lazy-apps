@@ -1,3 +1,4 @@
+use crate::nix::ansi_escape::strip_ansi_escapes;
 use crate::nix::model::{ActivityType, LogField, NixLogAction, NixLogMessage};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -119,15 +120,6 @@ pub static URL_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"https?://(?:[^\s'"?#]+/)*(?P<name>[^/'"\s?#]+)"#)
         .expect("valid regex for URL_RE")
 });
-
-#[allow(clippy::expect_used)]
-pub static ANSI_ESCAPE_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").expect("valid regex for ANSI_ESCAPE_RE")
-});
-
-pub fn strip_ansi_escapes(s: &str) -> String {
-    ANSI_ESCAPE_RE.replace_all(s, "").into_owned()
-}
 
 /// Extracts a clean package or resource name from a Nix store path or URL.
 ///
