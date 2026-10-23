@@ -2,7 +2,6 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-
 #[allow(clippy::expect_used)]
 pub static STORE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?:/nix/store/(?:[0-9a-zA-Z]{32}-)?|\A[0-9a-zA-Z]{32}-)(?P<name>[^/'"\s]+)"#)
@@ -11,8 +10,7 @@ pub static STORE_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
 
 #[allow(clippy::expect_used)]
 pub static URL_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"https?://(?:[^\s'"?#]+/)*(?P<name>[^/'"\s?#]+)"#)
-        .expect("valid regex for URL_RE")
+    Regex::new(r#"https?://(?:[^\s'"?#]+/)*(?P<name>[^/'"\s?#]+)"#).expect("valid regex for URL_RE")
 });
 
 /// Extracts a clean package or resource name from a Nix store path or URL.
@@ -29,5 +27,8 @@ pub fn extract_package_name(path: &str) -> String {
         .map(|m| m.as_str())
         .unwrap_or(trimmed);
 
-    raw_name.strip_suffix(".drv").unwrap_or(raw_name).to_string()
+    raw_name
+        .strip_suffix(".drv")
+        .unwrap_or(raw_name)
+        .to_string()
 }

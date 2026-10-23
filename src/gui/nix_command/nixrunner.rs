@@ -3,12 +3,14 @@ use std::{process::Stdio, sync::mpsc::Receiver};
 use tokio::{io::AsyncBufReadExt, process::Command};
 
 use crate::{
-    cli::GuiArgs, gui::nix_command::child_guard::ChildGuard, nix::tracker::{NixProgressSnapshot, NixStateTracker},
+    cli::GuiArgs,
+    gui::nix_command::child_guard::ChildGuard,
+    nix::tracker::{NixProgressSnapshot, NixStateTracker},
 };
 
 pub fn create_nix_command(gui_args: &GuiArgs) -> Command {
     let mut cmd = Command::new("nix");
-    cmd.args(["run", "--log-format", "internal-json"]);
+    cmd.args(["build", "--no-link", "--log-format", "internal-json"]);
 
     if gui_args.impure || gui_args.unfree {
         cmd.arg("--impure");
@@ -19,11 +21,6 @@ pub fn create_nix_command(gui_args: &GuiArgs) -> Command {
     }
 
     cmd.arg(&gui_args.flake_output);
-
-    if !gui_args.args.is_empty() {
-        cmd.arg("--");
-        cmd.args(&gui_args.args);
-    }
 
     cmd
 }

@@ -179,7 +179,7 @@ programs.nix-lazy-apps.lazyPkgs = with pkgs; [
 ];
 ```
 
-- Automatically extracts `pname` (or `name`), `meta.desktopName`, `meta.description`, and icon names.
+- Automatically extracts `pname` (or `name`), `meta.desktopName`, `meta.description`, icon names, and `meta.terminal`.
 - Discards string context so the derivation is **never realized into your system closure** at switch time.
 - Resolves flake target as `${defaultFlake}#${pname}` (defaults to `nixpkgs#<pname>`).
 
@@ -232,20 +232,28 @@ programs.nix-lazy-apps.lazyPkgs = [
     flakeOutput = "github:user/tools#custom-cli";
     terminal = true;
   }
+  # Mark TUI applications so desktop launchers open them in a terminal:
+  {
+    package = pkgs.btop;
+    terminal = true;
+  }
 ];
 ```
+
+Users can provide `{ package = pkgs.btop; terminal = true; }` to mark TUI applications so application launchers launch them inside a terminal emulator and terminal invocations attach directly.
 
 #### Supported Attrset Fields:
 
 | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
+| `package` | derivation | `null` | Derivation to extract metadata and default settings from. |
 | `name` | string | *(derived)* | Name of the binary placed in `/bin`. |
 | `desktopName` | string | `name` | Human-readable name displayed in desktop application menus. |
 | `flakeOutput` | string | `"${defaultFlake}#${name}"` | Flake URI passed to `nix run`. |
 | `icon` | string | `name` | Icon identifier or path for the `.desktop` file. |
 | `comment` | string | `null` | Tooltip / description in the `.desktop` file. |
 | `categories` | list of strings | `[ ]` | XDG desktop categories (e.g., `[ "Development" "IDE" ]`). |
-| `terminal` | boolean | `false` | Whether the application runs inside a terminal window. |
+| `terminal` | boolean | `drv.meta.terminal or false` | Whether the application runs inside a terminal window (launchers open a terminal emulator; terminal invocations attach directly). |
 | `exec` | string | *(default wrapper call)* | Custom `Exec=` line for the desktop entry. |
 | `extraDesktopConfig` | attrset | `{ }` | Additional attributes forwarded to `pkgs.makeDesktopItem`. |
 | `extraPaths` | list of paths | `[ ]` | Extra derivations symlinked alongside the wrapper. |

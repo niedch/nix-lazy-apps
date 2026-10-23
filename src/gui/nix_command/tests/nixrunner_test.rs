@@ -1,8 +1,6 @@
 use tokio::process::Command;
 
-use crate::{
-    cli::GuiArgs, gui::nix_command::nixrunner::create_nix_command,
-};
+use crate::{cli::GuiArgs, gui::nix_command::nixrunner::create_nix_command};
 
 fn get_command_args(cmd: &Command) -> Vec<String> {
     cmd.as_std()
@@ -33,7 +31,13 @@ fn test_create_nix_command_default() {
     let args = get_command_args(&cmd);
     assert_eq!(
         args,
-        vec!["run", "--log-format", "internal-json", "nixpkgs#hello"]
+        vec![
+            "build",
+            "--no-link",
+            "--log-format",
+            "internal-json",
+            "nixpkgs#hello"
+        ]
     );
     assert_eq!(get_command_env(&cmd, "NIXPKGS_ALLOW_UNFREE"), None);
 }
@@ -53,7 +57,8 @@ fn test_create_nix_command_unfree() {
     assert_eq!(
         args,
         vec![
-            "run",
+            "build",
+            "--no-link",
             "--log-format",
             "internal-json",
             "--impure",
@@ -81,7 +86,8 @@ fn test_create_nix_command_impure() {
     assert_eq!(
         args,
         vec![
-            "run",
+            "build",
+            "--no-link",
             "--log-format",
             "internal-json",
             "--impure",
@@ -106,13 +112,11 @@ fn test_create_nix_command_trailing_args() {
     assert_eq!(
         args,
         vec![
-            "run",
+            "build",
+            "--no-link",
             "--log-format",
             "internal-json",
-            "nixpkgs#hello",
-            "--",
-            "--flag",
-            "val"
+            "nixpkgs#hello"
         ]
     );
     assert_eq!(get_command_env(&cmd, "NIXPKGS_ALLOW_UNFREE"), None);
@@ -133,13 +137,12 @@ fn test_create_nix_command_unfree_impure_and_trailing_args() {
     assert_eq!(
         args,
         vec![
-            "run",
+            "build",
+            "--no-link",
             "--log-format",
             "internal-json",
             "--impure",
-            "nixpkgs#steam",
-            "--",
-            "-silent"
+            "nixpkgs#steam"
         ]
     );
     assert_eq!(

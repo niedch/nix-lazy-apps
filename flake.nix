@@ -133,12 +133,25 @@
               appStringDefault = mkLazyApp "hello";
               appStringDefaultUnfree = mkLazyAppUnfreeDefault "hello";
 
+              # 5. Terminal apps
+              appBtopPackage = mkLazyApp {
+                package = pkgs.btop;
+                terminal = true;
+              };
+              appBtopFlake = mkLazyApp {
+                flakeOutput = "nixpkgs#btop";
+                name = "btop";
+                terminal = true;
+              };
+              appDrvMetaTerminal = mkLazyApp (pkgs.hello // { meta = (pkgs.hello.meta or { }) // { terminal = true; }; });
+
               # Evaluation assertions
               asserts = [
                 (!appHello.passthru.spec.unfree)
                 (!appHello.passthru.spec.impure)
                 (!(pkgs.lib.hasInfix "--unfree" appHello.passthru.spec.exec))
                 (!(pkgs.lib.hasInfix "--impure" appHello.passthru.spec.exec))
+                (!appHello.passthru.spec.terminal)
 
                 appIntellij.passthru.spec.unfree
                 (pkgs.lib.hasInfix "--unfree" appIntellij.passthru.spec.exec)
@@ -157,6 +170,10 @@
 
                 appStringDefaultUnfree.passthru.spec.unfree
                 (pkgs.lib.hasInfix "--unfree" appStringDefaultUnfree.passthru.spec.exec)
+
+                appBtopPackage.passthru.spec.terminal
+                appBtopFlake.passthru.spec.terminal
+                appDrvMetaTerminal.passthru.spec.terminal
               ];
 
               evalSuccess = pkgs.lib.all (x: x) asserts;
@@ -173,6 +190,12 @@
                 grep -F 'gui --impure --flake-output' ${appExplicitImpure}/bin/hello
                 grep -F 'gui --flake-output' ${appStringDefault}/bin/hello
                 grep -F 'gui --unfree --flake-output' ${appStringDefaultUnfree}/bin/hello
+
+                # Verify desktop entries
+                grep -F 'Terminal=false' ${appHello}/share/applications/hello.desktop
+                grep -F 'Terminal=true' ${appBtopPackage}/share/applications/btop.desktop
+                grep -F 'Terminal=true' ${appBtopFlake}/share/applications/btop.desktop
+                grep -F 'Terminal=true' ${appDrvMetaTerminal}/share/applications/hello.desktop
 
                 touch $out
               '';

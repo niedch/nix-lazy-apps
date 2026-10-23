@@ -5,11 +5,20 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use eframe::egui::{self, Color32, CornerRadius, RichText, Stroke, StrokeKind};
 
 use crate::{
-    cli::GuiArgs, gui::{nix_command::nixrunner, theme::setup_theme}, nix::tracker::NixProgressSnapshot,
+    cli::GuiArgs,
+    gui::{nix_command::nixrunner, theme::setup_theme},
+    nix::tracker::NixProgressSnapshot,
 };
 
-pub fn gui(gui_args: GuiArgs) -> Result<Option<String>, eframe::Error> {
-    let (error_tx, error_rx) = std::sync::mpsc::channel();
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GuiResult {
+    Success,
+    Cancelled,
+    Error(String),
+}
+
+pub fn gui(gui_args: GuiArgs) -> Result<GuiResult, eframe::Error> {
+    let (result_tx, result_rx) = std::sync::mpsc::channel();
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -40,12 +49,16 @@ pub fn gui(gui_args: GuiArgs) -> Result<Option<String>, eframe::Error> {
                 progress: 0.0,
                 rx: reciever,
                 error: None,
-                error_tx,
+                result_tx,
             }))
         }),
     )?;
 
-    Ok(error_rx.try_recv().ok())
+    let result = match result_rx.try_recv() {
+        Ok(res) => res,
+        Err(_) => GuiResult::Cancelled,
+    };
+    Ok(result)
 }
 
 pub struct LoadingDialogApp {
@@ -54,7 +67,7 @@ pub struct LoadingDialogApp {
     pub progress: f32,
     pub rx: Receiver<NixProgressSnapshot>,
     pub error: Option<String>,
-    pub error_tx: Sender<String>,
+    pub result_tx: Sender<GuiResult>,
 }
 
 impl LoadingDialogApp {
@@ -92,6 +105,9 @@ impl LoadingDialogApp {
                 Err(TryRecvError::Disconnected) => {
                     // Background worker finished and closed the channel
                     if latest_snapshot.is_none() {
+                        let _ = self.result_tx.send(GuiResult::Error(
+                            "Build process terminated unexpectedly".to_string(),
+                        ));
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                         return;
                     }
@@ -107,7 +123,9 @@ impl LoadingDialogApp {
             }
 
             if let Some(err) = &self.error {
-                let _ = self.error_tx.send(err.clone());
+                let _ = self.result_tx.send(GuiResult::Error(err.clone()));
+            } else {
+                let _ = self.result_tx.send(GuiResult::Success);
             }
 
             ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
@@ -178,6 +196,7 @@ impl eframe::App for LoadingDialogApp {
                         .add_sized([80.0, 24.0], egui::Button::new("Cancel"))
                         .clicked()
                     {
+                        let _ = self.result_tx.send(GuiResult::Cancelled);
                         ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });

@@ -389,7 +389,8 @@ impl NixStateTracker {
                 let expected_bytes = fields.get(1).and_then(|f| f.as_u64()).unwrap_or(0);
                 if target_type
                     .and_then(|t| u32::try_from(t).ok())
-                    .map(ActivityType::from) == Some(ActivityType::FileTransfer)
+                    .map(ActivityType::from)
+                    == Some(ActivityType::FileTransfer)
                 {
                     self.total_expected_download_bytes = expected_bytes;
                 }

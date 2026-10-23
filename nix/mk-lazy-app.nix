@@ -91,6 +91,7 @@ let
       flakeOutput = "${defaultFlake}#${name}";
       icon = name;
       unfree = isDerivationUnfree drv;
+      terminal = drv.meta.terminal or false;
     };
 
   # Main builder implementation
@@ -124,7 +125,7 @@ let
       icon = if rawSpec ? icon then safeString rawSpec.icon else name;
       comment = sanitizeComment (rawSpec.comment or null);
       categories = rawSpec.categories or [ ];
-      terminal = rawSpec.terminal or false;
+      terminal = (rawSpec.terminal or false) == true;
       unfree = rawSpec.unfree or defaultAllowUnfree;
       impure = rawSpec.impure or false;
       flags = (lib.optionalString unfree " --unfree") + (lib.optionalString impure " --impure");
