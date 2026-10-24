@@ -32,6 +32,7 @@
         };
 
         lib = {
+          resolveFlake = import ./nix/resolve-flake.nix;
           mkLazyApp =
             args:
             let
@@ -95,6 +96,7 @@
           mkLazyApp = import ./nix/mk-lazy-app.nix {
             inherit pkgs;
             lazyAppsPkg = packages.default;
+            follows = nixpkgs;
           };
         };
 
@@ -105,6 +107,7 @@
               mkLazyAppUnfreeDefault = import ./nix/mk-lazy-app.nix {
                 inherit pkgs;
                 lazyAppsPkg = packages.default;
+                follows = nixpkgs;
                 defaultAllowUnfree = true;
               };
 
@@ -147,6 +150,9 @@
 
               # Evaluation assertions
               asserts = [
+                (pkgs.lib.hasPrefix "path:" appHello.passthru.spec.flakeOutput)
+                (pkgs.lib.hasSuffix "#hello" appHello.passthru.spec.flakeOutput)
+                (appHello.passthru.spec.follows == nixpkgs)
                 (!appHello.passthru.spec.unfree)
                 (!appHello.passthru.spec.impure)
                 (!(pkgs.lib.hasInfix "--unfree" appHello.passthru.spec.exec))
@@ -159,6 +165,7 @@
                 appExplicitUnfree.passthru.spec.unfree
                 (pkgs.lib.hasInfix "--unfree" appExplicitUnfree.passthru.spec.exec)
 
+                (appExplicitFlakeUnfree.passthru.spec.flakeOutput == "nixpkgs#hello")
                 appExplicitFlakeUnfree.passthru.spec.unfree
                 (pkgs.lib.hasInfix "--unfree" appExplicitFlakeUnfree.passthru.spec.exec)
 

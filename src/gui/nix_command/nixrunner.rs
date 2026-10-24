@@ -55,6 +55,7 @@ pub fn nix_runner(
 
             while let Ok(Some(line)) = reader.next_line().await {
                 let snapshot = tracker.process_line(&line);
+                println!("Received snapshot {:?}", snapshot);
                 if snapshot.is_finished {
                     guard.disarmed = true;
                 }

@@ -130,6 +130,7 @@ Import the module in your NixOS configuration:
 
   programs.nix-lazy-apps = {
     enable = true;
+    follows = inputs.nixpkgs;
     lazyPkgs = with pkgs; [
       r2modman
       # strings and custom attrsets also work!
@@ -154,6 +155,7 @@ Import the module in your Home Manager configuration:
 
   programs.nix-lazy-apps = {
     enable = true;
+    follows = inputs.nixpkgs;
     lazyPkgs = with pkgs; [
       r2modman
     ];
@@ -181,11 +183,11 @@ programs.nix-lazy-apps.lazyPkgs = with pkgs; [
 
 - Automatically extracts `pname` (or `name`), `meta.desktopName`, `meta.description`, icon names, and `meta.terminal`.
 - Discards string context so the derivation is **never realized into your system closure** at switch time.
-- Resolves flake target as `${defaultFlake}#${pname}` (defaults to `nixpkgs#<pname>`).
+- Resolves flake target against `follows` (e.g. `<follows>#<pname>`).
 
 ### 2. Plain Package Names
 
-Specify plain strings for attributes available in your `defaultFlake`:
+Specify plain strings for attributes available in `follows`:
 
 ```nix
 programs.nix-lazy-apps.lazyPkgs = [
@@ -195,7 +197,7 @@ programs.nix-lazy-apps.lazyPkgs = [
 ];
 ```
 
-- Resolves to `${defaultFlake}#<name>` (e.g., `nixpkgs#r2modman`).
+- Resolves against `follows` (e.g. `<follows>#<name>`).
 - Binary wrapper and `.desktop` name will use the provided name.
 
 ### 3. Flake References
@@ -247,9 +249,10 @@ Users can provide `{ package = pkgs.btop; terminal = true; }` to mark TUI applic
 | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `package` | derivation | `null` | Derivation to extract metadata and default settings from. |
+| `follows` | flake input | `null` | Optional per-application flake input override. |
 | `name` | string | *(derived)* | Name of the binary placed in `/bin`. |
 | `desktopName` | string | `name` | Human-readable name displayed in desktop application menus. |
-| `flakeOutput` | string | `"${defaultFlake}#${name}"` | Flake URI passed to `nix run`. |
+| `flakeOutput` | string | `"${follows}#${name}"` | Flake URI passed to `nix run`. |
 | `icon` | string | `name` | Icon identifier or path for the `.desktop` file. |
 | `comment` | string | `null` | Tooltip / description in the `.desktop` file. |
 | `categories` | list of strings | `[ ]` | XDG desktop categories (e.g., `[ "Development" "IDE" ]`). |
@@ -268,14 +271,11 @@ If you prefer not to use the NixOS or Home Manager modules, you can use the `lib
 { inputs, pkgs, ... }:
 
 let
-  # Initialize helper with pkgs
-  mkLazyApp = inputs.nix-lazy-apps.lib.mkLazyApp pkgs;
-
-  # Or configure with custom defaults
-  # mkLazyApp = inputs.nix-lazy-apps.lib.mkLazyApp {
-  #   inherit pkgs;
-  #   defaultFlake = "nixpkgs";
-  # };
+  # Initialize helper with pkgs and follows
+  mkLazyApp = inputs.nix-lazy-apps.lib.mkLazyApp {
+    inherit pkgs;
+    follows = inputs.nixpkgs;
+  };
 in
 {
   environment.systemPackages = [
@@ -306,6 +306,7 @@ You can also pass `app` directly into the function invocation:
 ```nix
 inputs.nix-lazy-apps.lib.mkLazyApp {
   inherit pkgs;
+  follows = inputs.nixpkgs;
   app = pkgs.r2modman;
 }
 ```
@@ -326,10 +327,10 @@ The NixOS and Home Manager modules provide the following options under `programs
 - **Default:** `[ ]`
 - **Description:** List of applications to generate lazy wrappers for. Accepts derivations, package name strings, flake output strings, or detailed attribute sets.
 
-### `programs.nix-lazy-apps.defaultFlake`
-- **Type:** `string`
-- **Default:** `"nixpkgs"`
-- **Description:** Default flake URI used when resolving packages specified by name (e.g., `"r2modman"` becomes `"nixpkgs#r2modman"`).
+### `programs.nix-lazy-apps.follows`
+- **Type:** `flake input | path | string`
+- **Default:** `null`
+- **Description:** The flake input to follow for resolving packages (e.g., `inputs.nixpkgs`). Ensures lazy applications build and run against the exact same channel and locked revision as the host flake that includes `nix-lazy-apps`.
 
 ### `programs.nix-lazy-apps.package`
 - **Type:** `package`

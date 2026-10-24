@@ -2,12 +2,14 @@
   lib ? pkgs.lib,
   pkgs,
   lazyAppsPkg,
-  defaultFlake ? "nixpkgs",
+  follows ? null,
   defaultAllowUnfree ? false,
   ...
 }@args:
 
 let
+  resolveFlake = import ./resolve-flake.nix { inherit lib; };
+
   # Strip string context to avoid turning lazy targets into build dependencies
   safeString =
     s:
@@ -15,6 +17,8 @@ let
       builtins.unsafeDiscardStringContext s
     else
       s;
+
+  targetFlake = if follows != null then resolveFlake follows else null;
 
   # Clean description for desktop files (must not contain newlines)
   sanitizeComment =
@@ -29,6 +33,7 @@ let
 
   # Parse plain string: "pkg", "flake#pkg", or "github:org/repo#pkg"
   parseString =
+    targetFlake:
     str:
     let
       cleanStr = safeString str;
@@ -47,7 +52,7 @@ let
     else
       {
         name = cleanStr;
-        flakeOutput = "${defaultFlake}#${cleanStr}";
+        flakeOutput = if targetFlake != null then "${targetFlake}#${cleanStr}" else null;
       };
 
   # Check if a license indicates an unfree license
@@ -73,6 +78,7 @@ let
 
   # Parse derivation attributes safely without realizing the derivation
   parseDerivation =
+    targetFlake:
     drv:
     let
       rawPname =
@@ -88,7 +94,7 @@ let
     in
     {
       inherit name desktopName comment;
-      flakeOutput = "${defaultFlake}#${name}";
+      flakeOutput = if targetFlake != null then "${targetFlake}#${name}" else null;
       icon = name;
       unfree = isDerivationUnfree drv;
       terminal = drv.meta.terminal or false;
@@ -98,18 +104,32 @@ let
   mkLazyApp =
     arg:
     let
+      appFollows =
+        if builtins.isAttrs arg && arg ? follows then
+          arg.follows
+        else
+          follows;
+
+      appTargetFlake =
+        if builtins.isAttrs arg && arg ? follows then
+          (if arg.follows != null then resolveFlake arg.follows else null)
+        else
+          targetFlake;
+
       rawSpec =
         if builtins.isString arg then
-          parseString arg
+          parseString appTargetFlake arg
         else if lib.isDerivation arg then
-          parseDerivation arg
+          parseDerivation appTargetFlake arg
         else if builtins.isAttrs arg then
           let
             base =
               if arg ? package && lib.isDerivation arg.package then
-                parseDerivation arg.package
+                parseDerivation appTargetFlake arg.package
+              else if arg ? app && lib.isDerivation arg.app then
+                parseDerivation appTargetFlake arg.app
               else if arg ? flakeOutput && !(arg ? name) then
-                parseString arg.flakeOutput
+                parseString appTargetFlake arg.flakeOutput
               else
                 { };
           in
@@ -120,7 +140,22 @@ let
       name = safeString (
         rawSpec.name or (throw "mkLazyApp: unable to determine 'name' for application")
       );
-      flakeOutput = safeString (rawSpec.flakeOutput or "${defaultFlake}#${name}");
+      hasExplicitFlakeOutput =
+        rawSpec ? flakeOutput
+        && rawSpec.flakeOutput != null
+        && lib.hasInfix "#" (safeString rawSpec.flakeOutput);
+      flakeOutput =
+        if hasExplicitFlakeOutput then
+          safeString rawSpec.flakeOutput
+        else if appTargetFlake != null then
+          safeString (
+            if rawSpec ? flakeOutput && rawSpec.flakeOutput != null then
+              "${appTargetFlake}#${safeString rawSpec.flakeOutput}"
+            else
+              "${appTargetFlake}#${name}"
+          )
+        else
+          throw "mkLazyApp: 'follows' argument is required to resolve package '${name}' (e.g. follows = inputs.nixpkgs)";
       desktopName = safeString (rawSpec.desktopName or name);
       icon = if rawSpec ? icon then safeString rawSpec.icon else name;
       comment = sanitizeComment (rawSpec.comment or null);
@@ -145,7 +180,7 @@ let
           unfree
           impure
           ;
-      };
+      } // lib.optionalAttrs (appFollows != null) { follows = appFollows; };
 
       desktopItem = pkgs.makeDesktopItem (
         {

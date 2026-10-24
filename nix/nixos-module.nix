@@ -23,7 +23,7 @@ let
       mkLazyApp = import ./mk-lazy-app.nix {
         inherit lib pkgs;
         lazyAppsPkg = cfg.package;
-        defaultFlake = cfg.defaultFlake;
+        follows = cfg.follows;
         defaultAllowUnfree = cfg.allowUnfree;
       };
 
@@ -44,10 +44,11 @@ let
           example = lib.literalExpression "with pkgs; [ r2modman ]";
         };
 
-        defaultFlake = lib.mkOption {
-          type = lib.types.str;
-          default = "nixpkgs";
-          description = "Default flake URI used when resolving lazy packages specified by name.";
+        follows = lib.mkOption {
+          type = lib.types.anything;
+          default = null;
+          description = "The nixpkgs flake input to follow (e.g. `inputs.nixpkgs`). Required when enabled unless all lazyPkgs specify full flake URIs.";
+          example = lib.literalExpression "inputs.nixpkgs";
         };
 
         allowUnfree = lib.mkOption {
