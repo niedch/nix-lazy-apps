@@ -713,6 +713,22 @@ let
 
       isCustomIcon = builtins.isPath rawIcon || lib.isDerivation rawIcon;
       iconName = safeString (rawSpec.iconName or name);
+      preferAbsoluteIcon = rawSpec.preferAbsoluteIcon or true;
+
+      rawIconPathStr = lib.toLower (baseNameOf (toString rawIcon));
+      rawIconNameStr =
+        if lib.isDerivation rawIcon && rawIcon ? name then
+          lib.toLower (safeString rawIcon.name)
+        else
+          "";
+      isSingleSvg =
+        (rawSpec.iconType or null) == "svg"
+        || lib.hasSuffix ".svg" rawIconPathStr
+        || lib.hasSuffix ".svg" rawIconNameStr;
+      isSinglePng =
+        (rawSpec.iconType or null) == "png"
+        || lib.hasSuffix ".png" rawIconPathStr
+        || lib.hasSuffix ".png" rawIconNameStr;
 
       customIconPkg =
         if isCustomIcon then
@@ -725,10 +741,19 @@ let
             elif [ -d "$src" ]; then
               mkdir -p "$out/share/pixmaps"
               cp -r "$src"/. "$out/share/pixmaps/"
-              for f in "$out/share/pixmaps"/*.svg; do
+              shopt -s nullglob
+              for f in "$out/share/pixmaps"/*.svg "$out/share/pixmaps"/*.SVG; do
                 if [ -f "$f" ]; then
                   mkdir -p "$out/share/icons/hicolor/scalable/apps"
                   cp "$f" "$out/share/icons/hicolor/scalable/apps/"
+                fi
+              done
+              for f in "$out/share/pixmaps"/*.png "$out/share/pixmaps"/*.PNG; do
+                if [ -f "$f" ]; then
+                  for size in 256x256 128x128 64x64 48x48; do
+                    mkdir -p "$out/share/icons/hicolor/$size/apps"
+                    cp "$f" "$out/share/icons/hicolor/$size/apps/"
+                  done
                 fi
               done
             elif [ -f "$src" ]; then
@@ -746,6 +771,11 @@ let
               if [ "$ext" = "svg" ] || [ "$ext" = "SVG" ]; then
                 mkdir -p "$out/share/icons/hicolor/scalable/apps"
                 cp "$src" "$out/share/icons/hicolor/scalable/apps/${iconName}.svg"
+              elif [ "$ext" = "png" ] || [ "$ext" = "PNG" ]; then
+                for size in 256x256 128x128 64x64 48x48; do
+                  mkdir -p "$out/share/icons/hicolor/$size/apps"
+                  cp "$src" "$out/share/icons/hicolor/$size/apps/${iconName}.png"
+                done
               fi
             else
               echo "Warning: icon source $src is not a file or directory" >&2
@@ -754,13 +784,20 @@ let
         else
           null;
 
-      icon =
+      desktopItemIcon =
         if isCustomIcon then
-          iconName
+          if preferAbsoluteIcon && isSingleSvg then
+            "${customIconPkg}/share/icons/hicolor/scalable/apps/${iconName}.svg"
+          else if preferAbsoluteIcon && isSinglePng then
+            "${customIconPkg}/share/icons/hicolor/256x256/apps/${iconName}.png"
+          else
+            iconName
         else if builtins.isString rawIcon then
           safeString rawIcon
         else
           null;
+
+      icon = desktopItemIcon;
 
       comment = sanitizeComment (rawSpec.comment or null);
       rawCategories = splitSemicolonList (rawSpec.categories or [ ]);
@@ -861,6 +898,7 @@ let
           desktopName
           genericName
           icon
+          desktopItemIcon
           comment
           categories
           mimeTypes

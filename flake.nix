@@ -301,6 +301,21 @@
                 icon = "custom-theme-icon";
               };
 
+              appCustomSvgRelative = mkLazyApp {
+                name = "custom-svg-relative-app";
+                flakeOutput = "nixpkgs#custom-svg-relative-app";
+                icon = mockCustomSvg;
+                preferAbsoluteIcon = false;
+              };
+
+              appCustomPngRelative = mkLazyApp {
+                name = "custom-png-relative-app";
+                flakeOutput = "nixpkgs#custom-png-relative-app";
+                icon = mockCustomPng;
+                iconName = "relative-png-icon";
+                preferAbsoluteIcon = false;
+              };
+
               # 11. Step 5 real-world and edge case test cases
               appR2modman = mkLazyApp pkgs.r2modman;
 
@@ -438,9 +453,15 @@
                 (appDrvMetaTerminal.passthru.spec.icon == "utilities-terminal")
 
                 # Custom icon derivation / path specs
-                (appCustomSvg.passthru.spec.icon == "custom-svg-app")
+                (
+                  appCustomSvg.passthru.spec.icon
+                  == "${appCustomSvg.passthru.customIconPkg}/share/icons/hicolor/scalable/apps/custom-svg-app.svg"
+                )
                 (appCustomSvg.passthru ? customIconPkg)
-                (appCustomPng.passthru.spec.icon == "my-custom-icon")
+                (
+                  appCustomPng.passthru.spec.icon
+                  == "${appCustomPng.passthru.customIconPkg}/share/icons/hicolor/256x256/apps/my-custom-icon.png"
+                )
                 (appCustomPng.passthru ? customIconPkg)
                 (appCustomIconDir.passthru.spec.icon == "custom-dir-app")
                 (appCustomIconDir.passthru ? customIconPkg)
@@ -448,6 +469,8 @@
                 (appCustomIconShareDir.passthru ? customIconPkg)
                 (appCustomPath.passthru.spec.icon == "path-icon")
                 (appCustomPath.passthru ? customIconPkg)
+                (appCustomSvgRelative.passthru.spec.icon == "custom-svg-relative-app")
+                (appCustomPngRelative.passthru.spec.icon == "relative-png-icon")
 
                 # Absolute path and plain string icons (no customIconPkg)
                 (appAbsolutePathIcon.passthru.spec.icon == "/opt/myapp/share/icons/app.png")
@@ -573,16 +596,26 @@
                 # Verify Step 4: custom SVG icon installation to pixmaps and hicolor scalable apps
                 test -f ${appCustomSvg}/share/pixmaps/custom-svg-app.svg
                 test -f ${appCustomSvg}/share/icons/hicolor/scalable/apps/custom-svg-app.svg
-                grep -F 'Icon=custom-svg-app' ${appCustomSvg}/share/applications/custom-svg-app.desktop
+                grep -F "Icon=${appCustomSvg.passthru.customIconPkg}/share/icons/hicolor/scalable/apps/custom-svg-app.svg" ${appCustomSvg}/share/applications/custom-svg-app.desktop
+                grep -F 'Icon=custom-svg-relative-app' ${appCustomSvgRelative}/share/applications/custom-svg-relative-app.desktop
 
-                # Verify Step 4: custom PNG icon with iconName installation to pixmaps
+                # Verify Step 4: custom PNG icon with iconName installation to pixmaps and standard hicolor sizes
                 test -f ${appCustomPng}/share/pixmaps/my-custom-icon.png
-                grep -F 'Icon=my-custom-icon' ${appCustomPng}/share/applications/custom-png-app.desktop
+                test -f ${appCustomPng}/share/icons/hicolor/256x256/apps/my-custom-icon.png
+                test -f ${appCustomPng}/share/icons/hicolor/128x128/apps/my-custom-icon.png
+                test -f ${appCustomPng}/share/icons/hicolor/64x64/apps/my-custom-icon.png
+                test -f ${appCustomPng}/share/icons/hicolor/48x48/apps/my-custom-icon.png
+                grep -F "Icon=${appCustomPng.passthru.customIconPkg}/share/icons/hicolor/256x256/apps/my-custom-icon.png" ${appCustomPng}/share/applications/custom-png-app.desktop
+                grep -F 'Icon=relative-png-icon' ${appCustomPngRelative}/share/applications/custom-png-relative-app.desktop
 
-                # Verify Step 4: directory without share installs into pixmaps and scalable apps
+                # Verify Step 4: directory without share installs into pixmaps, scalable apps, and standard png sizes
                 test -f ${appCustomIconDir}/share/pixmaps/dir-icon.png
                 test -f ${appCustomIconDir}/share/pixmaps/dir-scalable.svg
                 test -f ${appCustomIconDir}/share/icons/hicolor/scalable/apps/dir-scalable.svg
+                test -f ${appCustomIconDir}/share/icons/hicolor/256x256/apps/dir-icon.png
+                test -f ${appCustomIconDir}/share/icons/hicolor/128x128/apps/dir-icon.png
+                test -f ${appCustomIconDir}/share/icons/hicolor/64x64/apps/dir-icon.png
+                test -f ${appCustomIconDir}/share/icons/hicolor/48x48/apps/dir-icon.png
                 grep -F 'Icon=custom-dir-app' ${appCustomIconDir}/share/applications/custom-dir-app.desktop
 
                 # Verify Step 4: directory with share installs into share
@@ -617,7 +650,9 @@
                   ${appMockWithExec}/share/applications/mock-exec-app.desktop \
                   ${appExplicitCustomExec}/share/applications/custom-app.desktop \
                   ${appCustomSvg}/share/applications/custom-svg-app.desktop \
+                  ${appCustomSvgRelative}/share/applications/custom-svg-relative-app.desktop \
                   ${appCustomPng}/share/applications/custom-png-app.desktop \
+                  ${appCustomPngRelative}/share/applications/custom-png-relative-app.desktop \
                   ${appCustomIconDir}/share/applications/custom-dir-app.desktop \
                   ${appCustomIconShareDir}/share/applications/custom-share-app.desktop \
                   ${appCustomPath}/share/applications/custom-path-app.desktop \
