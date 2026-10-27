@@ -41,7 +41,23 @@ let
           type = lib.types.listOf lib.types.anything;
           default = [ ];
           description = "List of applications to generate lazy wrappers for (package derivations, flake strings, or attrsets).";
-          example = lib.literalExpression "with pkgs; [ r2modman ]";
+          example = lib.literalExpression ''
+            with pkgs; [
+              # 1. Package derivation (auto-extracts desktop items, icons, and metadata)
+              r2modman
+              # 2. Terminal application (opens inside a terminal emulator)
+              {
+                package = btop;
+                terminal = true;
+              }
+              # 3. Custom attrset with custom icon path or package
+              {
+                name = "custom-app";
+                flakeOutput = "nixpkgs#custom-app";
+                icon = ./icons/custom-app.png;
+              }
+            ]
+          '';
         };
 
         follows = lib.mkOption {

@@ -33,6 +33,13 @@ Instead of realizing entire software packages during system activation, `nix-laz
 - **Instant Rebuilds:** Zero waiting for multi-gigabyte browser, game, or Electron downloads during system evaluation and activation.
 - **Minimal Closures:** Prevents rarely-used or ad-hoc applications from bloating your generation's Nix store footprint.
 - **Desktop & CLI Wrappers:** Automatically generates XDG-compliant `.desktop` items in `/share/applications` and binary wrappers in `/bin`.
+- **Upstream Metadata Auto-Extraction:** Seamlessly inspects upstream `desktopItems` and `passthru.desktopItem` (e.g. `r2modman`) to extract names, descriptions, categories, icons, MIME types, search keywords, and window manager classes without realizing the underlying package closure into the Nix store.
+- **Polished Desktop Entries:**
+  - Automatic title casing for `desktopName` with known acronym preservation (`OBS`, `VLC`, `GIMP`, `IDE`, `CAD`, `UI`, `CLI`, etc.) and packaging suffix removal (`-bin`, `-wrapped`).
+  - Strict XDG categories compliance with automatic category inference from Nixpkgs application paths (e.g. `pkgs/applications/graphics/...` -> `Graphics`), falling back to `Utility` or `TerminalEmulator`.
+  - Search keywords auto-generation from application names and commands for launcher discovery (Rofi, Wofi, KRunner, GNOME, etc.).
+- **Rich Icon Support:** Supports icon theme names, absolute paths, local file paths (`./icon.png`), SVG/PNG derivations (`pkgs.fetchurl`), or full icon directories, with automatic packaging into `$out/share/pixmaps` and `$out/share/icons/hicolor/scalable/apps`.
+- **Terminal App Support:** Flags CLI/TUI applications (`terminal = true` or `meta.terminal`) to automatically launch inside the user's terminal emulator and attach CLI invocations directly.
 - **Responsive Native GUI:** Built with Rust and `egui`, featuring:
   - Real-time download, fetch, and build progress bars.
   - Granular activity status (e.g., specific store path downloads, flake fetches).
@@ -132,8 +139,22 @@ Import the module in your NixOS configuration:
     enable = true;
     follows = inputs.nixpkgs;
     lazyPkgs = with pkgs; [
+      # 1. Package derivations (auto-extracts desktop items, icons, and categories)
       r2modman
-      # strings and custom attrsets also work!
+      obs-studio
+
+      # 2. Terminal / TUI applications (opens in terminal emulator)
+      {
+        package = btop;
+        terminal = true;
+      }
+
+      # 3. Custom attrset with custom icon path or package
+      {
+        name = "custom-app";
+        flakeOutput = "nixpkgs#custom-app";
+        icon = ./icons/custom-app.png;
+      }
     ];
   };
 }
@@ -157,7 +178,17 @@ Import the module in your Home Manager configuration:
     enable = true;
     follows = inputs.nixpkgs;
     lazyPkgs = with pkgs; [
+      # Derivations, terminal apps, strings, and custom attrsets:
       r2modman
+      {
+        package = btop;
+        terminal = true;
+      }
+      {
+        name = "custom-app";
+        flakeOutput = "nixpkgs#custom-app";
+        icon = ./icons/custom-app.png;
+      }
     ];
   };
 }
@@ -178,12 +209,17 @@ programs.nix-lazy-apps.lazyPkgs = with pkgs; [
   r2modman
   blender
   gimp
+  obs-studio
+  vlc
 ];
 ```
 
-- Automatically extracts `pname` (or `name`), `meta.desktopName`, `meta.description`, icon names, and `meta.terminal`.
-- Discards string context so the derivation is **never realized into your system closure** at switch time.
-- Resolves flake target against `follows` (e.g. `<follows>#<pname>`).
+- **Upstream `desktopItems` extraction:** Automatically detects and extracts metadata from `drv.desktopItems` or `drv.passthru.desktopItem` (as seen in packages like `r2modman` or IDEs), preserving upstream comments, icons, categories, MIME types, search keywords, and window manager classes.
+- **Title casing & acronym preservation:** Formats application names into clean, readable titles while preserving recognized industry acronyms (e.g. `OBS Studio`, `VLC`, `GIMP`, `IDE`, `2D`, `3D`, `CAD`, `PDF`, `SQL`).
+- **Packaging suffix removal:** Strips common packaging suffixes such as `-bin`, `-wrapped`, and `-unwrapped` from generated display names.
+- **XDG categories & inference:** Falls back to registered Freedesktop categories by inspecting the package's Nixpkgs position path (e.g. `pkgs/applications/graphics/...` -> `Graphics`, `pkgs/applications/audio/...` -> `AudioVideo`, etc.), defaulting to `[ "Utility" ]` or `[ "System" "TerminalEmulator" ]`.
+- **Search keywords:** Automatically generates launcher search keywords from application names and commands so applications are instantly discoverable in Rofi, Wofi, KRunner, and GNOME Shell.
+- **Zero store realization:** Evaluates derivations purely from Nix metadata and strips Nix string contexts using `builtins.unsafeDiscardStringContext`—the heavy package is **never downloaded or built into your system closure** at rebuild time.
 
 ### 2. Plain Package Names
 
@@ -217,49 +253,81 @@ programs.nix-lazy-apps.lazyPkgs = [
 
 ### 4. Custom Attribute Sets
 
-For full control over metadata, categories, icons, and command behavior:
+For full control over metadata, categories, icons, terminal launch behavior, and command arguments:
 
 ```nix
 programs.nix-lazy-apps.lazyPkgs = [
+  # 1. Real-world mod manager with upstream desktop item overrides
   {
     name = "r2modman";
-    desktopName = "R2ModMan Mod Manager";
+    desktopName = "R2ModMan";
+    genericName = "Mod Manager";
     flakeOutput = "nixpkgs#r2modman";
     icon = "r2modman";
     comment = "Mod manager for Thunderstore";
     categories = [ "Game" ];
+    mimeTypes = [ "x-scheme-handler/ror2mm" ];
+    keywords = [ "launcher" "mod manager" "thunderstore" ];
   }
-  {
-    name = "custom-cli-tool";
-    flakeOutput = "github:user/tools#custom-cli";
-    terminal = true;
-  }
-  # Mark TUI applications so desktop launchers open them in a terminal:
+
+  # 2. Terminal / TUI application launching inside a terminal emulator
   {
     package = pkgs.btop;
     terminal = true;
   }
+
+  # 3. Custom application with local SVG/PNG icon file or fetchurl derivation
+  {
+    name = "my-studio";
+    flakeOutput = "nixpkgs#obs-studio";
+    desktopName = "Custom Studio";
+    icon = ./assets/studio-icon.svg; # Path literal or pkgs.fetchurl derivation
+    iconName = "my-studio-icon";
+    categories = [ "AudioVideo" "Recorder" ];
+  }
+
+  # 4. Complex CLI application with custom exec arguments and field codes
+  {
+    name = "my-editor";
+    flakeOutput = "nixpkgs#neovim";
+    terminal = true;
+    exec = "nvim --clean %F";
+  }
 ];
 ```
 
-Users can provide `{ package = pkgs.btop; terminal = true; }` to mark TUI applications so application launchers launch them inside a terminal emulator and terminal invocations attach directly.
+#### Supported Icon Types:
+
+`nix-lazy-apps` supports multiple icon formats through the `icon` attribute:
+1. **Themed Icon Name (String):** E.g. `"firefox"` or `"utilities-terminal"`. Refers to icons provided by your desktop icon theme.
+2. **Absolute Path (String):** E.g. `"/opt/myapp/share/icons/app.png"`. Referenced directly in `Icon=`.
+3. **Local Path Literal (Path):** E.g. `./icons/app.png` or `./icon.svg`. The file is automatically copied into the wrapper package under `$out/share/pixmaps` and scalable SVGs under `$out/share/icons/hicolor/scalable/apps`.
+4. **Image Derivation (Package):** E.g. `pkgs.fetchurl { url = "..."; hash = "..."; }` or `pkgs.runCommand`. Automatically packaged into standard XDG pixmaps and scalable icon theme locations.
+5. **Icon Directory (Package / Path):** A derivation containing `$out/share/icons/...` or a directory of icon files. Installed alongside the wrapper package.
 
 #### Supported Attrset Fields:
 
 | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `package` | derivation | `null` | Derivation to extract metadata and default settings from. |
-| `follows` | flake input | `null` | Optional per-application flake input override. |
-| `name` | string | *(derived)* | Name of the binary placed in `/bin`. |
-| `desktopName` | string | `name` | Human-readable name displayed in desktop application menus. |
+| `package` / `app` | derivation | `null` | Derivation to extract metadata and default settings from (inspects `desktopItems`, `passthru.desktopItem`, and `meta` without store realization). |
+| `name` | string | *(derived)* | Base name and command placed in `/bin`. |
+| `desktopName` | string | *(title-cased name)* | Human-readable name displayed in desktop application menus (preserves acronyms like `OBS`, `VLC`, `GIMP`, `IDE`). |
+| `genericName` | string | `null` | Generic description (e.g., `"Web Browser"`, `"Mod Manager"`, `"Text Editor"`). |
 | `flakeOutput` | string | `"${follows}#${name}"` | Flake URI passed to `nix run`. |
-| `icon` | string | `name` | Icon identifier or path for the `.desktop` file. |
-| `comment` | string | `null` | Tooltip / description in the `.desktop` file. |
-| `categories` | list of strings | `[ ]` | XDG desktop categories (e.g., `[ "Development" "IDE" ]`). |
-| `terminal` | boolean | `drv.meta.terminal or false` | Whether the application runs inside a terminal window (launchers open a terminal emulator; terminal invocations attach directly). |
-| `exec` | string | *(default wrapper call)* | Custom `Exec=` line for the desktop entry. |
-| `extraDesktopConfig` | attrset | `{ }` | Additional attributes forwarded to `pkgs.makeDesktopItem`. |
-| `extraPaths` | list of paths | `[ ]` | Extra derivations symlinked alongside the wrapper. |
+| `icon` | string / path / derivation | `name` (or `"utilities-terminal"`) | Icon name, absolute path string, path literal (`./icon.png`), SVG/PNG derivation (`pkgs.fetchurl`), or full icon directory. |
+| `iconName` | string | `name` | Base file name to use when packaging custom file or derivation icons. |
+| `comment` | string | `drv.meta.description` | Tooltip / description in the `.desktop` file (sanitized to a single line). |
+| `categories` | list of strings | *(inferred or `[ "Utility" ]`)* | XDG desktop categories (e.g., `[ "Utility" "Development" ]`, inferred from Nixpkgs path, or `[ "System" "TerminalEmulator" ]`). |
+| `mimeTypes` | list of strings | `[ ]` | Supported MIME types and URI schemes (e.g., `[ "x-scheme-handler/ror2mm" "text/plain" ]`). |
+| `keywords` | list of strings | *(auto-generated)* | Search keywords for desktop application launchers (Rofi, KRunner, GNOME, etc.). |
+| `startupWMClass` | string | `null` | Window manager class for grouping windows under docks and taskbars. |
+| `terminal` | boolean | `drv.meta.terminal or false` | Whether the application runs inside a terminal window (launchers open a terminal emulator; CLI runs directly). |
+| `exec` | string | `"${wrapperScript}/bin/${name} %U"` | Custom `Exec=` line for the desktop entry. CLI arguments and field codes (`%U`, `%f`) are preserved and routed to the wrapper script. |
+| `unfree` | boolean | `defaultAllowUnfree` | Whether to allow unfree licenses when building/running this app. |
+| `impure` | boolean | `false` | Whether to allow impure evaluation (`--impure`). |
+| `follows` | flake input | `null` | Optional per-application flake input override. |
+| `extraDesktopConfig` / `extraConfig` | attrset | `{ }` | Additional attributes forwarded to `pkgs.makeDesktopItem`. |
+| `extraPaths` | list of paths | `[ ]` | Extra derivations or directories symlinked alongside the wrapper. |
 
 ---
 

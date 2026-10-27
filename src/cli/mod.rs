@@ -139,6 +139,28 @@ mod tests {
     }
 
     #[test]
+    fn test_cli_gui_empty_double_dash() {
+        let cli = Cli::try_parse_from([
+            "nix-lazy-apps",
+            "gui",
+            "--flake-output",
+            "nixpkgs#hello",
+            "--name",
+            "hello",
+            "--",
+        ]);
+        assert!(cli.is_ok());
+        if let Ok(Cli {
+            command: Commands::Gui(gui),
+        }) = cli
+        {
+            assert_eq!(gui.flake_output, "nixpkgs#hello");
+            assert_eq!(gui.name, "hello");
+            assert!(gui.args.is_empty());
+        }
+    }
+
+    #[test]
     fn test_cli_gui_trailing_positional_args() {
         let cli = Cli::try_parse_from([
             "nix-lazy-apps",
