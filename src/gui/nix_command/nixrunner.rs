@@ -3,9 +3,7 @@ use std::{process::Stdio, sync::mpsc::Receiver};
 use tokio::{io::AsyncBufReadExt, process::Command};
 
 use crate::{
-    cli::GuiArgs,
-    gui::nix_command::child_guard::ChildGuard,
-    nix::tracker::{NixProgressSnapshot, NixStateTracker},
+    cli::gui_args::GuiArgs, gui::nix_command::child_guard::ChildGuard, nix::tracker::{NixProgressSnapshot, NixStateTracker},
 };
 
 pub fn create_nix_command(gui_args: &GuiArgs) -> Command {

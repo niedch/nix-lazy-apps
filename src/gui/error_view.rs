@@ -1,4 +1,4 @@
-use crate::{cli::GuiArgs, gui::theme::setup_theme};
+use crate::{cli::gui_args::GuiArgs, gui::theme::setup_theme};
 use eframe::egui::{self, Color32, CornerRadius, RichText, Stroke};
 
 /// Displays a dedicated error window for an application failure.

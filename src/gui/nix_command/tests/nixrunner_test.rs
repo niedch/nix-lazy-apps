@@ -1,6 +1,6 @@
 use tokio::process::Command;
 
-use crate::{cli::GuiArgs, gui::nix_command::nixrunner::create_nix_command};
+use crate::{cli::gui_args::GuiArgs, gui::nix_command::nixrunner::create_nix_command};
 
 fn get_command_args(cmd: &Command) -> Vec<String> {
     cmd.as_std()

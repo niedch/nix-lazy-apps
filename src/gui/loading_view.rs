@@ -5,9 +5,7 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use eframe::egui::{self, Color32, CornerRadius, RichText, Stroke, StrokeKind};
 
 use crate::{
-    cli::GuiArgs,
-    gui::{nix_command::nixrunner, theme::setup_theme},
-    nix::tracker::NixProgressSnapshot,
+    cli::gui_args::GuiArgs, gui::{nix_command::nixrunner, theme::setup_theme}, nix::tracker::NixProgressSnapshot,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

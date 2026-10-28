@@ -1,10 +1,12 @@
-use cli::{Cli, CliParser, Commands};
+use clap::Parser;
+
+use crate::cli::{gui_args::GuiArgs, nix_lazy_apps::{Cli, Commands}};
 
 mod cli;
 mod gui;
 mod nix;
 
-pub fn create_nix_run_command(gui_args: &crate::cli::GuiArgs) -> std::process::Command {
+pub fn create_nix_run_command(gui_args: &GuiArgs) -> std::process::Command {
     let mut cmd = std::process::Command::new("nix");
     cmd.arg("run");
 
@@ -70,7 +72,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cli::GuiArgs;
+    use GuiArgs;
 
     fn get_command_args(cmd: &std::process::Command) -> Vec<String> {
         cmd.get_args()
